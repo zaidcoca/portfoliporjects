@@ -1,0 +1,192 @@
+
+-- Our client, a leading multinational corporation, has been experiencing some puzzling trends in their employee turnover rates. They suspect that 
+-- there may be hidden factors causing valuable employees to leave.His data detectives. It's our job to dig deep into their HR data and uncover the truth.Now let's jump straight into the case.
+-- We will be starting by exploring the HR data set, which contains information about each employee such as age, gender, job role, department, 
+ -- salary, performance ratings and more
+ 
+ 
+ 
+ 
+ -- 1 We create the database
+ 
+ Create database projects_hr;
+ 
+ use projects_hr
+ 
+ 
+ Select * from `human resources`
+ 
+ 
+ -- Data cleaning and processing -- 
+ 
+ Alter table `human resources`
+ change ï»¿id emp_id varchar(20) null;
+ 
+ describe `human resources`
+ 
+ -- 2 Updateing the date format
+ 
+ set sql_safe_updates = 0;
+ 
+UPDATE `human resources`
+SET birthdate = CASE
+		WHEN birthdate LIKE '%/%' THEN date_format(str_to_date(birthdate,'%m/%d/%Y'),'%Y-%m-%d')
+        WHEN birthdate LIKE '%-%' THEN date_format(str_to_date(birthdate,'%m-%d-%Y'),'%Y-%m-%d')
+        ELSE NULL
+		END;
+ -- To check the data type we changed
+ 
+Alter table `human resources`
+modify column birthdate Date;
+
+-- Change the data format and the datatype of higher dtae column
+
+UPDATE `human resources`
+SET hire_date = CASE
+		WHEN hire_date LIKE '%/%' THEN date_format(str_to_date(hire_date,'%m/%d/%Y'),'%Y-%m-%d')
+        WHEN hire_date LIKE '%-%' THEN date_format(str_to_date(hire_date,'%m-%d-%Y'),'%Y-%m-%d')
+        ELSE NULL
+		END;
+        
+ALTER TABLE `human resources`
+MODIFY COLUMN hire_date DATE;
+
+
+-- Change the date format & datetype of termdate column
+
+UPDATE `human resources`
+SET termdate = date(str_to_date(termdate, '%Y-%m-%d %H:%i:%s UTC'))
+WHERE termdate IS NOT NULL AND termdate !='';
+
+update `human resources`
+set termdate = null 
+where termdate = '';
+
+-- Create an age column
+
+alter table `human resources`
+add column age int;
+
+UPDATE `human resources`
+SET age = timestampdiff(YEAR,birthdate,curdate())
+
+-- 1 What is the gender breakdown of emplyees in the company.
+
+Select * from `human resources`
+
+Select gender, count(*) as count
+From `human resources`
+where termdate is null
+Group by gender;
+
+-- 2. What is the race breakdown of employees in the company
+
+SELECT race , COUNT(*) AS count
+FROm `human resources`
+WHERE termdate IS NULL
+GROUP BY race
+
+-- 3 What is the age distributuin of employees in the company
+
+select
+case
+    when age>= 18 and age<=24 '18-24'
+    when age>= 25 and age<=34 the '25-34'
+    when age>= 35 and age<=44 the '35-44'
+    when age>= 45 and age<=45 the '45-45'
+    when age>= 55 and age<=64 the '55-64'
+    else '65+'
+    end as age_group,
+    count(*)
+    from `human resources`
+    where termdate is null
+    group by age_group
+    order by age_group;
+    
+    -- 4. How many employees work at HQ vs Remote:
+    
+    Select location, count(*) as count
+    from `human resources`
+    where termdate is null
+    group by location
+    
+    -- 5. What is the average length of employment who have been termenated.
+    
+    select * from `human resources`
+    
+    select round(avg(year(termdate) - year(hire_date)),0) as length_of_employement
+    from `human resources`
+    where termdate is not null and termdate <=curdate()
+    
+-- 6. How does the gender distribution vary across departments and job titles.
+
+Select * from `human resources`
+
+select department,gender, count(*) as count
+from `human resources`
+where termdate is not null
+group by department, gender
+order by    department, gender
+
+-- 7. What is the distribution of jobtitle across the company
+
+Select jobtitle, count(*) as count from `human resources`
+where termdate is null
+group by jobtitle
+
+-- 8 Which dept has the higher turnover/termination rate
+
+select * from `human resources`
+
+
+select department, 
+         count(*) as total_count,
+         count(case
+	              when termdate is not null and termdate <= curdate() then 1
+                  end) as terminated_count,
+        round((count(case
+                        when termdate is not null and termdate <= curdate() then 1
+                        end)/count(*))*100,2) as termination_rate
+		from `human resources`
+        group by department
+        order by termination_rate desc
+        
+
+-- 9. what is the distribution of emplyees across location state.
+
+select location_state, count(*) as count
+from `human resources`
+where termdate is null
+group by location_state
+
+-- 10 How has the company's employees count changed  over time based on hire and termination date.
+
+select * from `human resources`
+
+select year,
+       hires,
+       terminations, hires-terminations as net_change,
+       (terminations/hires)*100 as change_percent
+       
+       from( 
+       
+             select year(hire_date) as year,
+             count(*)as hires,
+             sum(case
+                     when termdate is not null and termdate <= curdate() then 1
+                     end) as terminations
+                     
+                     
+		from `human resources`
+        group by year(hire_date)) as subquery
+        
+        group by year
+        order by year;
+        
+        
+-- 11. What is the tenour distribution for each department
+
+Select department, round(avg(datediff(termdate, hire_date)/365),0) as avg_tenure
+From `human resources`
+where termdate is not null and termdate <= curdate()
+group by department
